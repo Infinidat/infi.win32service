@@ -1,11 +1,13 @@
 import ctypes
-
+import logging
 from .utils import enum
 
-StartService       = ctypes.windll.advapi32.StartServiceW
-DeleteService      = ctypes.windll.advapi32.DeleteService
-SetServiceStatus   = ctypes.windll.advapi32.SetServiceStatus
-CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
+StartService                 = ctypes.windll.advapi32.StartServiceW
+DeleteService                = ctypes.windll.advapi32.DeleteService
+SetServiceStatus             = ctypes.windll.advapi32.SetServiceStatus
+CloseServiceHandle           = ctypes.windll.advapi32.CloseServiceHandle
+RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
+StartServiceCtrlDispatcher   = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=VS.85%29.aspx
 # typedef struct _SERVICE_STATUS_PROCESS {
@@ -49,6 +51,7 @@ class SERVICE_STATUS(ctypes.Structure):
                 ("dwServiceSpecificExitCode", ctypes.c_ulong),
                 ("dwCheckPoint", ctypes.c_ulong),
                 ("dwWaitHint", ctypes.c_ulong)]
+    
 LPSERVICE_STATUS = ctypes.POINTER(SERVICE_STATUS)
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
@@ -161,8 +164,6 @@ class Service(object):
     def __exit__(self, type, value, traceback):
         self.close()
 
-RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
-
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685138%28v=VS.85%29.aspx
 # VOID WINAPI ServiceMain(
 #   __in  DWORD dwArgc,
@@ -180,7 +181,7 @@ SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.
 # Although lpContext is LPVOID here, we specify c_ulong because we store the Pythonic context object too so it won't
 # get garbage collected. We use Python's id() function as the "address" of the Pythonic context object.
 # See the rest in register_ctrl_handler
-HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong)
+HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_uint)
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
 # typedef struct _SERVICE_TABLE_ENTRY {
@@ -188,7 +189,7 @@ HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, 
 #   LPSERVICE_MAIN_FUNCTION lpServiceProc;
 # } SERVICE_TABLE_ENTRY, *LPSERVICE_TABLE_ENTRY;
 class SERVICE_TABLE_ENTRY(ctypes.Structure):
-    _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", ctypes.POINTER(SERVICE_MAIN_FUNCTION))]
+    _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", SERVICE_MAIN_FUNCTION)]
 
 class _ServiceCtrl(object):
     def __init__(self):
@@ -207,7 +208,10 @@ class _ServiceCtrl(object):
                 # TODO: convert lpEventData to SERVICE_TIMECHANGE_INFO structure.
                 pass
 
-            return callback(dwControl, dwEventType, lpEventData, self._contexts[context])
+            try:
+                return callback(dwControl, dwEventType, lpEventData, self._contexts[context])
+            except:
+                logging.exception("exception caught in service callback handler")
             
         thunk = HANDLER_EX(wrapper)
 
@@ -217,14 +221,14 @@ class _ServiceCtrl(object):
         #   __in      LPHANDLER_FUNCTION_EX lpHandlerProc,
         #   __in_opt  LPVOID lpContext
         # );
-        handle = RegisterServiceCtrlHandlerEx(service_name, thunk, id(context))
+        handle = RegisterServiceCtrlHandlerEx(unicode(service_name), thunk, id(context))
         if handle == 0:
             raise ctypes.WinError()
 
         self._garbage_protect_map[id(thunk)] = thunk
         self._contexts[id(context)] = context
             
-        return handle
+        return Service(handle)
 
     def start_ctrl_dispatcher(self, *services):
         """
@@ -241,7 +245,10 @@ class _ServiceCtrl(object):
         for service, i in zip(services, xrange(len(services))):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
             def main_wrapper(argc, argv):
-                service[1](argv[i] for i in xrange(argc))
+                try:
+                    service[1](list(argv[i] for i in xrange(argc)))
+                except:
+                    logging.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
             name = unicode(service[0]) if service[0] is not None else u""
