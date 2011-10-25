@@ -5,6 +5,7 @@ from .utils import enum
 from .service import Service
 
 OpenSCManager      = ctypes.windll.advapi32.OpenSCManagerW
+OpenService        = ctypes.windll.advapi32.OpenServiceW
 CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
 CreateService      = ctypes.windll.advapi32.CreateServiceW
 

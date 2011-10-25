@@ -2,8 +2,10 @@ import ctypes
 
 from .utils import enum
 
-StartService = ctypes.windll.advapi32.StartServiceW
-SetServiceStatus = ctypes.windll.advapi32.SetServiceStatus
+StartService       = ctypes.windll.advapi32.StartServiceW
+DeleteService      = ctypes.windll.advapi32.DeleteService
+SetServiceStatus   = ctypes.windll.advapi32.SetServiceStatus
+CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=VS.85%29.aspx
 # typedef struct _SERVICE_STATUS_PROCESS {
@@ -135,6 +137,29 @@ class Service(object):
         # );
         if not SetServiceStatus(self.handle, LPSERVICE_STATUS(status)):
             raise ctypes.WinError()
+
+    def delete(self):
+        """
+        Deletes the service.
+        """
+        # http://msdn.microsoft.com/en-us/library/windows/desktop/ms682562%28v=vs.85%29.aspx
+        # BOOL WINAPI DeleteService(
+        #   __in  SC_HANDLE hService
+        # );
+        if not DeleteService(self.handle):
+            raise ctypes.WinError()
+
+    def close(self):
+        if self.handle != 0:
+            if not CloseServiceHandle(self.handle):
+                raise ctypes.WinError()
+            self.handle = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
 RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
 
