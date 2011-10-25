@@ -168,7 +168,7 @@ RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandler
 #   __in  DWORD dwArgc,
 #   __in  LPTSTR *lpszArgv
 # );
-SERVICE_MAIN = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.POINTER(ctypes.c_wchar_p))
+SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.POINTER(ctypes.c_wchar_p))
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms683241%28v=VS.85%29.aspx
 # DWORD WINAPI HandlerEx(
@@ -188,14 +188,14 @@ HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, 
 #   LPSERVICE_MAIN_FUNCTION lpServiceProc;
 # } SERVICE_TABLE_ENTRY, *LPSERVICE_TABLE_ENTRY;
 class SERVICE_TABLE_ENTRY(ctypes.Structure):
-    _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", ctypes.c_void_p)]
+    _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", ctypes.POINTER(SERVICE_MAIN_FUNCTION))]
 
 class _ServiceCtrl(object):
     def __init__(self):
         self._garbage_protect_map = dict()
         self._contexts = dict()
 
-    def register_ctrl_handler(self, service_name, callback, context):
+    def register_ctrl_handler(self, service_name, callback, context=None):
         def wrapper(dwControl, dwEventType, lpEventData, lpContext):
             if dwControl == ServiceControl.DEVICEEVENT and dwEventType == EventType.POWERSETTINGCHANGE:
                 # TODO: convert lpEventData to a POWERBROADCAST_SETTING structure.
@@ -243,7 +243,7 @@ class _ServiceCtrl(object):
             def main_wrapper(argc, argv):
                 service[1](argv[i] for i in xrange(argc))
 
-            thunk = SERVICE_MAIN(main_wrapper)
+            thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
             name = unicode(service[0]) if service[0] is not None else u""
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
