@@ -1,6 +1,8 @@
 import ctypes
 import logging
+
 from .utils import enum
+from .common import ServiceControl, ServiceType
 
 StartService                 = ctypes.windll.advapi32.StartServiceW
 DeleteService                = ctypes.windll.advapi32.DeleteService
@@ -34,6 +36,31 @@ class SERVICE_STATUS_PROCESS(ctypes.Structure):
 
 
 # From http://msdn.microsoft.com/en-us/library/windows/desktop/ms685996%28v=vs.85%29.aspx
+
+ServiceState = enum(
+    STOPPED          = 0x00000001,
+    START_PENDING    = 0x00000002,
+    STOP_PENDING     = 0x00000003,
+    RUNNING          = 0x00000004,
+    CONTINUE_PENDING = 0x00000005,
+    PAUSE_PENDING    = 0x00000006,
+    PAUSED           = 0x00000007
+)
+
+ServiceControlsAccepted = enum(
+    STOP                  = 0x00000001,
+    SHUTDOWN              = 0x00000004,
+    PARAMCHANGE           = 0x00000008,
+    PAUSE_CONTINUE        = 0x00000002,
+    NETBINDCHANGE         = 0x00000010,
+    HARDWAREPROFILECHANGE = 0x00000020,
+    POWEREVENT            = 0x00000040,
+    SESSIONCHANGE         = 0x00000080,
+    PRESHUTDOWN           = 0x00000100,
+    TIMECHANGE            = 0x00000200,
+    TRIGGEREVENT          = 0x00000400 
+)
+
 # typedef struct _SERVICE_STATUS {
 #   DWORD dwServiceType;
 #   DWORD dwCurrentState;
@@ -90,7 +117,12 @@ ServiceNotifyMask = enum(
     PAUSED           = 0x00000040,
     CREATED          = 0x00000080,
     DELETED          = 0x00000100,
-    DELETE_PENDING   = 0x00000200)
+    DELETE_PENDING   = 0x00000200
+)
+
+# From WinError.h:
+ERROR_SERVICE_SPECIFIC_ERROR = 1066
+NO_ERROR = 0
 
 class Service(object):
     def __init__(self, handle, tag=None):
@@ -195,21 +227,31 @@ class _ServiceCtrl(object):
     def __init__(self):
         self._garbage_protect_map = dict()
         self._contexts = dict()
+        self._handles = dict()
 
     def register_ctrl_handler(self, service_name, callback, context=None):
         def wrapper(dwControl, dwEventType, lpEventData, lpContext):
-            if dwControl == ServiceControl.DEVICEEVENT and dwEventType == EventType.POWERSETTINGCHANGE:
-                # TODO: convert lpEventData to a POWERBROADCAST_SETTING structure.
-                pass
-            elif dwControl == ServiceControl.SESSIONCHANGE:
-                # TODO: convert lpEventData to WTSSESSION_NOTIFICATION structure.
-                pass
-            elif dwControl == ServiceControl.TIMECHANGE:
-                # TODO: convert lpEventData to SERVICE_TIMECHANGE_INFO structure.
-                pass
-
             try:
-                return callback(dwControl, dwEventType, lpEventData, self._contexts[context])
+                if dwControl == ServiceControl.DEVICEEVENT and dwEventType == EventType.POWERSETTINGCHANGE:
+                    # TODO: convert lpEventData to a POWERBROADCAST_SETTING structure.
+                    pass
+                elif dwControl == ServiceControl.SESSIONCHANGE:
+                    # TODO: convert lpEventData to WTSSESSION_NOTIFICATION structure.
+                    pass
+                elif dwControl == ServiceControl.TIMECHANGE:
+                    # TODO: convert lpEventData to SERVICE_TIMECHANGE_INFO structure.
+                    pass
+
+                if id(wrapper) in self._handles:
+                    handle = self._handles[id(wrapper)]
+                else:
+                    handle = None
+                if lpContext in self._contexts:
+                    context = self._contexts[lpContext]
+                else:
+                    context = None
+                    
+                return callback(handle, dwControl, dwEventType, lpEventData, context)
             except:
                 logging.exception("exception caught in service callback handler")
             
@@ -227,6 +269,7 @@ class _ServiceCtrl(object):
 
         self._garbage_protect_map[id(thunk)] = thunk
         self._contexts[id(context)] = context
+        self._handles[id(wrapper)] = handle
             
         return Service(handle)
 

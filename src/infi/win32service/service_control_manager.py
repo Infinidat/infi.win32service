@@ -3,6 +3,7 @@ from collections import namedtuple
 
 from .utils import enum
 from .service import Service
+from .common import ServiceType
 
 OpenSCManager      = ctypes.windll.advapi32.OpenSCManagerW
 OpenService        = ctypes.windll.advapi32.OpenServiceW
@@ -23,16 +24,6 @@ ServiceManagerAccess = enum(
 SC_ACTIVE_DATABASE = u"SERVICES_ACTIVE_DATABASE"
 
 # From http://msdn.microsoft.com/en-us/library/windows/desktop/ms682450%28v=vs.85%29.aspx
-
-# -- CreateService.dwServiceType:
-ServiceType = enum(
-    KERNEL_DRIVER         = 0x00000001,
-    FILE_SYSTEM_DRIVER    = 0x00000002,
-    ADAPTER               = 0x00000004,
-    RECOGNIZER_DRIVER     = 0x00000008,
-    WIN32_OWN_PROCESS     = 0x00000010,
-    WIN32_SHARE_PROCESS   = 0x00000020,
-    INTERACTIVE_PROCESS   = 0x00000100)
 
 # -- CreateService.dwStartType:
 ServiceStartType = enum(
