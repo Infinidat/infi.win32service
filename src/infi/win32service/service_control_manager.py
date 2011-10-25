@@ -110,15 +110,19 @@ class ServiceControlManager(object):
         dwStartType = start_type
         dwErrorControl = error_control
         lpBinaryPathName = unicode(path) 
-        lpLoadOrderGroup = unicode(load_order_group) if load_order_group is not None else 0
+        lpLoadOrderGroup = unicode(load_order_group) if load_order_group is not None else None
 
-        tag_id = ctypes.c_ulong()
-        lpdwTagId = ctypes.byref(tag_id)
+        # TODO: Setting a lpdwTagId makes Windows return error 87 "The parameter is incorrect". Since it's not that
+        # important at the moment, we'll keep this as NULL.
+        tag_id = ctypes.c_uint(0)
+        # lpdwTagId = ctypes.addressof(tag_id)
+        lpdwTagId = None
 
-        lpDependencies = unicode(dependencies) if dependencies is not None else 0
-        lpServiceStartName = unicode(account) if account is not None else 0
-        lpPassword = unicode(account_password) if account_password is not None else 0
+        lpDependencies = unicode(dependencies) if dependencies is not None else None
+        lpServiceStartName = unicode(account) if account is not None else None
+        lpPassword = unicode(account_password) if account_password is not None else None
 
+        assert self.handle != 0
         service_h = CreateService(self.handle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType,
                                   dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId,
                                   lpDependencies, lpServiceStartName, lpPassword)
