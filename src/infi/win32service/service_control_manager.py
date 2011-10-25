@@ -118,7 +118,7 @@ class ServiceControlManager(object):
         lpDependencies = unicode(dependencies) if dependencies is not None else 0
         lpServiceStartName = unicode(account) if account is not None else 0
         lpPassword = unicode(account_password) if account_password is not None else 0
-        
+
         service_h = CreateService(self.handle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType,
                                   dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId,
                                   lpDependencies, lpServiceStartName, lpPassword)
