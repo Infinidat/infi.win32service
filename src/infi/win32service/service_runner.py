@@ -3,7 +3,7 @@ from .service import ServiceState, ServiceControlsAccepted, SERVICE_STATUS, Serv
 from .common import ServiceControl, ServiceType
 
 import logging
-logger = logging.Logger(__name__)
+logger = logging.getLogger(__name__)
 
 RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
 StartServiceCtrlDispatcher   = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
