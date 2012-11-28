@@ -5,6 +5,7 @@ from .utils import enum
 from .common import ServiceControl, ServiceType
 
 StartService                 = ctypes.windll.advapi32.StartServiceW
+ControlService               = ctypes.windll.advapi32.ControlService
 DeleteService                = ctypes.windll.advapi32.DeleteService
 SetServiceStatus             = ctypes.windll.advapi32.SetServiceStatus
 CloseServiceHandle           = ctypes.windll.advapi32.CloseServiceHandle
@@ -139,6 +140,26 @@ class Service(object):
         lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
+
+    def stop(self):
+        """
+        Stops the service.
+        """
+        new_status = SERVICE_STATUS()
+        if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
+            raise ctypes.WinError()
+        if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
+            raise ctypes.WinError()
+        
+    def safe_stop(self):
+        """
+        Stops the service, and ignores "not started" errors
+        """
+        try:
+            self.stop()
+        except WindowsError, e:
+            if e.winerror != 1062:
+                raise
 
     def query_config(self):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684932%28v=vs.85%29.aspx
