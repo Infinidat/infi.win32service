@@ -5,7 +5,7 @@ SETUP_INFO = dict(
     author = '${infi.recipe.template.version:author}',
     author_email = '${infi.recipe.template.version:author_email}',
 
-    url = 'http://www.infinidat.com',
+    url = ${infi.recipe.template.version:homepage},
     license = 'PSF',
     description = """${project:description}""",
     long_description = """${project:long_description}""",
@@ -23,35 +23,24 @@ SETUP_INFO = dict(
     install_requires = ${project:install_requires},
     namespace_packages = ${project:namespace_packages},
 
-    # packages = find_packages('src'),
     package_dir = {'': 'src'},
+    package_data = {'': ${project:package_data}},
     include_package_data = True,
     zip_safe = False,
 
     entry_points = dict(
         console_scripts = ${project:console_scripts},
-        gui_scripts = []),
-    )
+        gui_scripts = ${project:gui_scripts},
+        ),
+)
 
-platform_install_requires = {
-    'windows' : ${project:install_requires_windows},
-    'linux' : ${project:install_requires_linux},
-    'macosx' : ${project:install_requires_macosx},
-}
-
-def _get_os_name():
-    import platform
-    system = platform.system().lower().replace('-', '').replace('_', '')
-    if system == 'darwin':
-        return 'macosx'
-    return system
-
+if SETUP_INFO['url'] is None:
+    _ = SETUP_INFO.pop('url')
 
 def setup():
     from setuptools import setup as _setup
     from setuptools import find_packages
     SETUP_INFO['packages'] = find_packages('src')
-    SETUP_INFO['install_requires'] += platform_install_requires[_get_os_name()]
     _setup(**SETUP_INFO)
 
 if __name__ == '__main__':
