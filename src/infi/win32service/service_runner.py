@@ -161,6 +161,8 @@ class ServiceRunner(object):
         logger.debug("ServiceRunner._service_callback: handle=%x, fdwControl=%x dwEventType=%x" %
                   (handle, fdwControl, dwEventType))
 
+        self.control(fdwControl)
+
         service = Service(handle)
         if fdwControl == ServiceControl.STOP:
             logger.debug("STOP requested, quitting.")
@@ -168,9 +170,7 @@ class ServiceRunner(object):
         elif fdwControl == ServiceControl.INTERROGATE:
             logger.debug("INTERROGATE requested.")
             self._notify_status(service)
-            
-        self.control(fdwControl)
-        
+                    
         return 0
 
     def _notify_status(self, service, status=None):

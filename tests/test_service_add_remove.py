@@ -25,7 +25,7 @@ class TestWin32Service(TestCase):
             infi_service.start()
             time.sleep(3)
             infi_service.stop()
-            time.sleep(3)
+            time.sleep(6)
             infi_service.close()
             
     def _delete(self):
@@ -62,6 +62,9 @@ class MyServiceRunner(ServiceRunner):
     def control(self, control):
         if control == ServiceControl.STOP:
             self._stop_event.set()
+        # sleep before returning control to service runner and notifying that we are stopped - gives the main
+        # thread time to exit gracefully before it will be killed by the Windows service manager after notification
+        time.sleep(3)
 
 if __name__ == "__main__":
     MyServiceRunner().run()
