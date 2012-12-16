@@ -34,6 +34,9 @@ class TestWin32Service(TestCase):
             infi_service.delete()
             infi_service.close()
 
+        # sleep to let the service db refresh or something; otherwise the open succeeds, somehow, sometimes
+        time.sleep(3)
+
         with ServiceControlManagerContext() as scm:
             with self.assertRaisesRegexp(WindowsError, "The specified service does not exist as an installed service."):
                 infi_service = scm.open_service(INFI_SERVICE_NAME)
