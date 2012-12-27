@@ -25,7 +25,7 @@ class TestWin32Service(TestCase):
             infi_service.start()
             time.sleep(3)
             infi_service.stop()
-            time.sleep(3)
+            time.sleep(6)
             infi_service.close()
             
     def _delete(self):
@@ -33,6 +33,9 @@ class TestWin32Service(TestCase):
             infi_service = scm.open_service(INFI_SERVICE_NAME)
             infi_service.delete()
             infi_service.close()
+
+        # sleep to let the service db refresh or something; otherwise the open succeeds, somehow, sometimes
+        time.sleep(3)
 
         with ServiceControlManagerContext() as scm:
             with self.assertRaisesRegexp(WindowsError, "The specified service does not exist as an installed service."):
@@ -62,6 +65,9 @@ class MyServiceRunner(ServiceRunner):
     def control(self, control):
         if control == ServiceControl.STOP:
             self._stop_event.set()
+        # sleep before returning control to service runner and notifying that we are stopped - gives the main
+        # thread time to exit gracefully before it will be killed by the Windows service manager after notification
+        time.sleep(3)
 
 if __name__ == "__main__":
     MyServiceRunner().run()
