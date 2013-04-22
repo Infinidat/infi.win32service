@@ -135,7 +135,10 @@ class Service(object):
         #   __in      DWORD dwNumServiceArgs,
         #   __in_opt  LPCTSTR *lpServiceArgVectors
         # );
-        lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
+        if len(args) == 0:
+            lpServiceArgVectors = None
+        else:
+            lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
 
@@ -147,6 +150,7 @@ class Service(object):
         if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
             raise ctypes.WinError()
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
+            print new_status.dwCurrentState
             raise ctypes.WinError()
         
     def safe_stop(self):
