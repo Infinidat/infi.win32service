@@ -23,9 +23,9 @@ class TestWin32Service(TestCase):
         with ServiceControlManagerContext() as scm:
             infi_service = scm.open_service(INFI_SERVICE_NAME)
             infi_service.start()
-            time.sleep(20)
+            time.sleep(3)
             infi_service.stop()
-            time.sleep(20)
+            time.sleep(6)
             infi_service.close()
             
     def _delete(self):

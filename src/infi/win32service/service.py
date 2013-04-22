@@ -146,7 +146,6 @@ class Service(object):
         new_status = SERVICE_STATUS()
         if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
             raise ctypes.WinError()
-        import time; time.sleep(20)
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
             raise ctypes.WinError()
         
