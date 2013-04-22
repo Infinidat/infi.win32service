@@ -9,6 +9,7 @@ ControlService               = ctypes.windll.advapi32.ControlService
 DeleteService                = ctypes.windll.advapi32.DeleteService
 SetServiceStatus             = ctypes.windll.advapi32.SetServiceStatus
 CloseServiceHandle           = ctypes.windll.advapi32.CloseServiceHandle
+QueryServiceStatus           = ctypes.windll.advapi32.QueryServiceStatus
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=VS.85%29.aspx
 # typedef struct _SERVICE_STATUS_PROCESS {
@@ -146,12 +147,23 @@ class Service(object):
         """
         Stops the service.
         """
+        
+        status = SERVICE_STATUS()
+        if not QueryServiceStatus(self.handle, ctypes.byref(status)):
+            raise ctypes.WinError()
+        print 'A', status.dwCurrentState
+        
         new_status = SERVICE_STATUS()
         if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
             raise ctypes.WinError()
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
-            print new_status.dwCurrentState
+            print 'B', new_status.dwCurrentState
             raise ctypes.WinError()
+
+        status = SERVICE_STATUS()
+        if not QueryServiceStatus(self.handle, ctypes.byref(status)):
+            raise ctypes.WinError()
+        print 'C', status.dwCurrentState
         
     def safe_stop(self):
         """
