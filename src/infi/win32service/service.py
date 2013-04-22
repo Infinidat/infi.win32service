@@ -147,19 +147,12 @@ class Service(object):
         """
         Stops the service.
         """
-        
         new_status = SERVICE_STATUS()
         if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
             raise ctypes.WinError()
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
-            print 'B', new_status.dwCurrentState
             raise ctypes.WinError()
 
-        status = SERVICE_STATUS()
-        if not QueryServiceStatus(self.handle, ctypes.byref(status)):
-            raise ctypes.WinError()
-        print 'C', status.dwCurrentState
-        
     def safe_stop(self):
         """
         Stops the service, and ignores "not started" errors
