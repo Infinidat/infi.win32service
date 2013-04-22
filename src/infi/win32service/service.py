@@ -148,10 +148,10 @@ class Service(object):
         Stops the service.
         """
         
-        status = SERVICE_STATUS()
+        status = ctypes.c_buffer("\x00" * 1024)
         if not QueryServiceStatus(self.handle, ctypes.byref(status)):
             raise ctypes.WinError()
-        print 'A', status.dwCurrentState
+        print 'A'
         
         new_status = SERVICE_STATUS()
         if not ControlService(self.handle, ServiceControl.STOP, ctypes.byref(new_status)):
