@@ -148,7 +148,7 @@ class Service(object):
         Stops the service.
         """
         
-        status = ctypes.c_buffer("\x00" * 1024)
+        status = ctypes.c_buffer("\x00" * (4*7 * 10000))
         if not QueryServiceStatus(self.handle, ctypes.byref(status)):
             raise ctypes.WinError()
         print 'A'
