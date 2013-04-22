@@ -135,7 +135,10 @@ class Service(object):
         #   __in      DWORD dwNumServiceArgs,
         #   __in_opt  LPCTSTR *lpServiceArgVectors
         # );
-        lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
+        if len(args) == 0:
+            lpServiceArgVectors = None
+        else:
+            lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
 
