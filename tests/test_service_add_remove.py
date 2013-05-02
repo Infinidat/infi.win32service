@@ -17,7 +17,7 @@ class TestWin32Service(TestCase):
                                u"Infinidat Test Service",
                                ServiceType.WIN32_OWN_PROCESS,
                                ServiceStartType.AUTO, 
-                               "\"{}\" {}".format(python_exe, __file__)).close()
+                               "\"{}\" {}".format(python_exe, __file__.replace('.pyc', '.py'))).close()
     
     def _start_stop(self):
         with ServiceControlManagerContext() as scm:
