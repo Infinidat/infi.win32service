@@ -24,8 +24,10 @@ class TestWin32Service(TestCase):
             infi_service = scm.open_service(INFI_SERVICE_NAME)
             infi_service.start()
             time.sleep(3)
+            self.asserTrue(infi_service.is_running())
             infi_service.stop()
             time.sleep(6)
+            self.asserFalse(infi_service.is_running())
             infi_service.close()
             
     def _delete(self):
