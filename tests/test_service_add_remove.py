@@ -16,18 +16,20 @@ class TestWin32Service(TestCase):
             scm.create_service(INFI_SERVICE_NAME,
                                u"Infinidat Test Service",
                                ServiceType.WIN32_OWN_PROCESS,
-                               ServiceStartType.AUTO, 
+                               ServiceStartType.AUTO,
                                "\"{}\" {}".format(python_exe, __file__.replace('.pyc', '.py'))).close()
-    
+
     def _start_stop(self):
         with ServiceControlManagerContext() as scm:
             infi_service = scm.open_service(INFI_SERVICE_NAME)
             infi_service.start()
             time.sleep(3)
+            self.assertTrue(infi_service.is_running())
             infi_service.stop()
             time.sleep(6)
+            self.assertFalse(infi_service.is_running())
             infi_service.close()
-            
+
     def _delete(self):
         with ServiceControlManagerContext() as scm:
             infi_service = scm.open_service(INFI_SERVICE_NAME)

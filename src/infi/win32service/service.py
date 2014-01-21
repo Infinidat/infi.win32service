@@ -163,6 +163,15 @@ class Service(object):
             if e.winerror != 1062:
                 raise
 
+    def get_status(self):
+        current_status = SERVICE_STATUS()
+        if not QueryServiceStatus(self.handle, ctypes.byref(current_status)):
+            raise ctypes.WinError()
+        return current_status.dwCurrentState
+
+    def is_running(self):
+        return self.get_status() == ServiceState.RUNNING
+
     def query_config(self):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684932%28v=vs.85%29.aspx
         # BOOL WINAPI QueryServiceConfig(
