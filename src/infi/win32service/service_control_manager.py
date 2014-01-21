@@ -134,6 +134,14 @@ class ServiceControlManager(object):
                 raise ctypes.WinError()
             self.handle = 0
 
+    def is_service_exist(self, name):
+        try:
+            service = self.open_service(name, ServiceAccess.QUERY_STATUS)
+            service.close()
+            return True
+        except WindowsError:
+            return False
+
     def __enter__(self):
         return self
 
