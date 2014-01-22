@@ -3,7 +3,7 @@ from collections import namedtuple
 
 from .utils import enum
 from .service import Service
-from .common import ServiceType
+from .common import ServiceType, ERROR_INVALID_HANDLE
 
 OpenSCManager      = ctypes.windll.advapi32.OpenSCManagerW
 OpenService        = ctypes.windll.advapi32.OpenServiceW
@@ -131,7 +131,8 @@ class ServiceControlManager(object):
     def close(self):
         if self.handle != 0:
             if not CloseServiceHandle(self.handle):
-                raise ctypes.WinError()
+                if ctypes.get_last_error() != ERROR_INVALID_HANDLE:
+                    raise ctypes.WinError()
             self.handle = 0
 
     def is_service_exist(self, name):

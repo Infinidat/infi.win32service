@@ -2,7 +2,7 @@ import ctypes
 import logging
 
 from .utils import enum
-from .common import ServiceControl, ServiceType
+from .common import ServiceControl, ServiceType, ERROR_INVALID_HANDLE
 
 StartService                 = ctypes.windll.advapi32.StartServiceW
 ControlService               = ctypes.windll.advapi32.ControlService
@@ -219,7 +219,8 @@ class Service(object):
     def close(self):
         if self.handle != 0:
             if not CloseServiceHandle(self.handle):
-                raise ctypes.WinError()
+                if ctypes.get_last_error() != ERROR_INVALID_HANDLE:
+                    raise ctypes.WinError()
             self.handle = 0
 
     def __enter__(self):
