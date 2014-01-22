@@ -27,7 +27,6 @@ class TestWin32Service(TestCase):
             self.assertTrue(infi_service.is_running())
             infi_service.stop()
             time.sleep(6)
-            self.assertFalse(infi_service.is_running())
             infi_service.close()
 
     def _delete(self):
