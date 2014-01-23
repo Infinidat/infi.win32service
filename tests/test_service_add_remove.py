@@ -60,10 +60,16 @@ class TestWin32Service(TestCase):
         self._delete()
 
     def test_stop_twice(self):
-        self._register()
-        self._start_stop()
-        self._stop()
-        self._delete()
+        with ServiceControlManagerContext() as scm:
+            infi_service = scm.open_service("VSS")
+            with infi_service:
+                infi_service.safe_stop()
+                time.sleep(6)
+        with ServiceControlManagerContext() as scm:
+            infi_service = scm.open_service("VSS")
+            with infi_service:
+                infi_service.safe_stop()
+                time.sleep(6)
 
 class MyServiceRunner(ServiceRunner):
     def __init__(self):
