@@ -30,6 +30,13 @@ class TestWin32Service(TestCase):
             self.assertFalse(infi_service.is_running())
             infi_service.close()
 
+    def _stop(self):
+        with ServiceControlManagerContext() as scm:
+            infi_service = scm.open_service(INFI_SERVICE_NAME)
+            with infi_service:
+                infi_service.safe_stop()
+                time.sleep(6)
+
     def _delete(self):
         with ServiceControlManagerContext() as scm:
             infi_service = scm.open_service(INFI_SERVICE_NAME)
@@ -42,28 +49,34 @@ class TestWin32Service(TestCase):
         with ServiceControlManagerContext() as scm:
             with self.assertRaisesRegexp(WindowsError, "The specified service does not exist as an installed service."):
                 infi_service = scm.open_service(INFI_SERVICE_NAME)
-    
+
     def test_full_cycle(self):
         self._register()
         self._start_stop()
-            
+
         test_lines = open(TEST_FILE, "rb").readlines()
         self.assertEqual(test_lines, ["started\n", "stopped\n"])
-        
+
         self._delete()
-    
+
+    def test_stop_twice(self):
+        self._register()
+        self._start_stop()
+        self._stop()
+        self._delete()
+
 class MyServiceRunner(ServiceRunner):
     def __init__(self):
         super(MyServiceRunner, self).__init__(INFI_SERVICE_NAME)
         self._stop_event = Event()
-    
+
     def main(self):
         test_file = open(TEST_FILE, "wb")
         test_file.write("started\n")
         self._stop_event.wait()
         test_file.write("stopped\n")
         test_file.close()
-    
+
     def control(self, control):
         if control == ServiceControl.STOP:
             self._stop_event.set()

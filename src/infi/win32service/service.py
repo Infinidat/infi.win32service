@@ -157,6 +157,8 @@ class Service(object):
         """
         Stops the service, and ignores "not started" errors
         """
+        if self.get_status() in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
+            return
         try:
             self.stop()
         except WindowsError, e:
