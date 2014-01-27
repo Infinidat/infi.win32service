@@ -126,7 +126,8 @@ NO_ERROR = 0
 
 class Service(object):
     def __init__(self, handle, tag=None):
-        self.handle = handle
+        self.handle = ctypes.c_void_p(handle) if isinstance(handle, (int, long)) else \
+                      ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
         self.tag = tag
 
     def start(self, *args):

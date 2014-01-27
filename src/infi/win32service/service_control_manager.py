@@ -74,7 +74,8 @@ class ServiceControlManagerContext(object):
 class ServiceControlManager(object):
     def __init__(self, handle):
         super(ServiceControlManager, self).__init__()
-        self.handle = handle
+        self.handle = ctypes.c_void_p(handle) if isinstance(handle, (int, long)) else \
+                      ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
 
     def create_service(self, name, display_name, type, start_type, path,
                        load_order_group=None, dependencies=None, error_control=ServiceErrorControl.NORMAL,
