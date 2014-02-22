@@ -40,3 +40,4 @@ src/infi/hello/__version__.py
 src/infi/win32service/__version__.py
 .cache
 eggs
+parts
