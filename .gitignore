@@ -41,3 +41,4 @@ src/infi/win32service/__version__.py
 .cache
 eggs
 parts
+bootstrap.py
