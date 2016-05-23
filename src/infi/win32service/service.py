@@ -144,6 +144,15 @@ class Service(object):
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
 
+    def wait_on_pending(self, timeout_in_seconds=60):
+        from time import sleep
+        for sec in xrange(timeout_in_seconds):
+            if self.get_status() in (ServiceState.STOP_PENDING, ServiceState.START_PENDING):
+                sleep(1)
+            else:
+                return
+        raise RuntimeError("wait_on_pending timed out, status is: {}".format(self.get_status()))
+
     def stop(self):
         """
         Stops the service.
