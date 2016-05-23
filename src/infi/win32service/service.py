@@ -163,6 +163,11 @@ class Service(object):
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
             raise ctypes.WinError()
 
+    def safe_start(self):
+        if self.get_status() in [ServiceState.RUNNING, ServiceState.START_PENDING]:
+            return
+        self.start()
+
     def safe_stop(self):
         """
         Stops the service, and ignores "not started" errors
