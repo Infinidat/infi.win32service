@@ -10,6 +10,8 @@ DeleteService                = ctypes.windll.advapi32.DeleteService
 SetServiceStatus             = ctypes.windll.advapi32.SetServiceStatus
 CloseServiceHandle           = ctypes.windll.advapi32.CloseServiceHandle
 QueryServiceStatus           = ctypes.windll.advapi32.QueryServiceStatus
+QueryServiceConfig           = ctypes.windll.advapi32.QueryServiceConfigW
+ChangeServiceConfig          = ctypes.windll.advapi32.ChangeServiceConfigW
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=VS.85%29.aspx
 # typedef struct _SERVICE_STATUS_PROCESS {
@@ -34,6 +36,36 @@ class SERVICE_STATUS_PROCESS(ctypes.Structure):
                 ("dwProcessId", ctypes.c_ulong),
                 ("dwServiceFlags", ctypes.c_ulong)]
 
+# https://msdn.microsoft.com/en-us/library/windows/desktop/ms684950(v=vs.85).aspx
+# typedef struct _QUERY_SERVICE_CONFIG {
+#   DWORD  dwServiceType;
+#   DWORD  dwStartType;
+#   DWORD  dwErrorControl;
+#   LPTSTR lpBinaryPathName;
+#   LPTSTR lpLoadOrderGroup;
+#   DWORD  dwTagId;
+#   LPTSTR lpDependencies;
+#   LPTSTR lpServiceStartName;
+#   LPTSTR lpDisplayName;
+# } QUERY_SERVICE_CONFIG, *LPQUERY_SERVICE_CONFIG;
+class QUERY_SERVICE_CONFIG(ctypes.Structure):
+    _fields_ = [("dwServiceType", ctypes.c_ulong),
+                ("dwStartType", ctypes.c_ulong),
+                ("dwErrorControl", ctypes.c_ulong),
+                ("lpBinaryPathName", ctypes.c_wchar_p),
+                ("lpLoadOrderGroup", ctypes.c_wchar_p),
+                ("dwTagId", ctypes.c_ulong),
+                ("lpDependencies", ctypes.c_wchar_p),
+                ("lpServiceStartName", ctypes.c_wchar_p)]
+
+    def to_dict(self):
+        return dict(service_type=self.dwServiceType, start_type=self.dwStartType,
+                    error_control=self.dwErrorControl, binary_path_name=self.lpBinaryPathName,
+                    load_order_group=self.lpLoadOrderGroup, tag_id=self.dwTagId,
+                    dependencies=self.lpDependencies, service_start_name=self.lpServiceStartName)
+
+
+LPQUERY_SERVICE_CONFIG = ctypes.POINTER(QUERY_SERVICE_CONFIG)
 
 # From http://msdn.microsoft.com/en-us/library/windows/desktop/ms685996%28v=vs.85%29.aspx
 
@@ -58,7 +90,23 @@ ServiceControlsAccepted = enum(
     SESSIONCHANGE         = 0x00000080,
     PRESHUTDOWN           = 0x00000100,
     TIMECHANGE            = 0x00000200,
-    TRIGGEREVENT          = 0x00000400 
+    TRIGGEREVENT          = 0x00000400
+)
+
+
+ServiceType = enum(
+    SERVICE_KERNEL_DRIVER = 0x00000001,
+    SERVICE_FILE_SYSTEM_DRIVER = 0x00000002,
+    SERVICE_WIN32_OWN_PROCESS = 0x00000010,
+    SERVICE_WIN32_SHARE_PROCESS = 0x00000020
+)
+
+StartType = enum(
+SERVICE_BOOT_START = 0x00000000,
+SERVICE_SYSTEM_START = 0x00000001,
+SERVICE_AUTO_START = 0x00000002,
+SERVICE_DEMAND_START = 0x00000003,
+SERVICE_DISABLED = 0x00000004
 )
 
 # typedef struct _SERVICE_STATUS {
@@ -78,12 +126,12 @@ class SERVICE_STATUS(ctypes.Structure):
                 ("dwServiceSpecificExitCode", ctypes.c_ulong),
                 ("dwCheckPoint", ctypes.c_ulong),
                 ("dwWaitHint", ctypes.c_ulong)]
-    
+
 LPSERVICE_STATUS = ctypes.POINTER(SERVICE_STATUS)
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
 # typedef VOID( CALLBACK * PFN_SC_NOTIFY_CALLBACK ) (
-#     IN PVOID pParameter 
+#     IN PVOID pParameter
 # );
 FN_SC_NOTIFY_CALLBACK = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p)
 
@@ -124,6 +172,9 @@ ServiceNotifyMask = enum(
 ERROR_SERVICE_SPECIFIC_ERROR = 1066
 NO_ERROR = 0
 
+# From winsvc.h:
+SERVICE_NO_CHANGE = 0xffffffff
+
 class Service(object):
     def __init__(self, handle, tag=None):
         self.handle = ctypes.c_void_p(handle) if isinstance(handle, (int, long)) else \
@@ -144,6 +195,15 @@ class Service(object):
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
 
+    def wait_on_pending(self, timeout_in_seconds=60):
+        from time import sleep
+        for sec in xrange(timeout_in_seconds):
+            if self.get_status() in (ServiceState.STOP_PENDING, ServiceState.START_PENDING):
+                sleep(1)
+            else:
+                return
+        raise RuntimeError("wait_on_pending timed out, status is: {}".format(self.get_status()))
+
     def stop(self):
         """
         Stops the service.
@@ -153,6 +213,11 @@ class Service(object):
             raise ctypes.WinError()
         if new_status.dwCurrentState not in [ServiceState.STOPPED, ServiceState.STOP_PENDING]:
             raise ctypes.WinError()
+
+    def safe_start(self):
+        if self.get_status() in [ServiceState.RUNNING, ServiceState.START_PENDING]:
+            return
+        self.start()
 
     def safe_stop(self):
         """
@@ -175,6 +240,9 @@ class Service(object):
     def is_running(self):
         return self.get_status() == ServiceState.RUNNING
 
+    # def change_service_config
+    # https://msdn.microsoft.com/en-us/library/windows/desktop/ms681987(v=vs.85).aspx
+
     def query_config(self):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684932%28v=vs.85%29.aspx
         # BOOL WINAPI QueryServiceConfig(
@@ -183,7 +251,47 @@ class Service(object):
         #   __in       DWORD cbBufSize,
         #   __out      LPDWORD pcbBytesNeeded
         # );
-        raise NotImplementedError()
+        config_buffer = ctypes.create_string_buffer(8192) # The maximum size of this array is 8K bytes
+        bytes_needed = ctypes.c_ulong()
+        if not QueryServiceConfig(self.handle, config_buffer, 8192, ctypes.byref(bytes_needed)):
+            raise ctypes.WinError()
+        service_config = ctypes.cast(config_buffer, ctypes.POINTER(QUERY_SERVICE_CONFIG))
+        return service_config.contents.to_dict()
+
+    def change_service_config(self, start_type):
+        # https://msdn.microsoft.com/en-us/library/windows/desktop/ms681987(v=vs.85).aspx
+        # BOOL WINAPI ChangeServiceConfig(
+        #   _In_      SC_HANDLE hService,
+        #   _In_      DWORD     dwServiceType,
+        #   _In_      DWORD     dwStartType,
+        #   _In_      DWORD     dwErrorControl,
+        #   _In_opt_  LPCTSTR   lpBinaryPathName,
+        #   _In_opt_  LPCTSTR   lpLoadOrderGroup,
+        #   _Out_opt_ LPDWORD   lpdwTagId,
+        #   _In_opt_  LPCTSTR   lpDependencies,
+        #   _In_opt_  LPCTSTR   lpServiceStartName,
+        #   _In_opt_  LPCTSTR   lpPassword,
+        #   _In_opt_  LPCTSTR   lpDisplayName
+        # );
+        null_ptr = ctypes.POINTER(ctypes.c_int)()
+        if not ChangeServiceConfig(self.handle,
+                                   SERVICE_NO_CHANGE, start_type, SERVICE_NO_CHANGE,
+                                   null_ptr, null_ptr,
+                                   null_ptr, null_ptr, null_ptr,
+                                   null_ptr, null_ptr):
+            raise ctypes.WinError()
+
+    def is_disabled(self):
+        return self.query_config()['start_type'] == StartType.SERVICE_DISABLED
+
+    def is_autostart(self):
+        return self.query_config()['start_type'] == StartType.SERVICE_AUTO_START
+
+    def disable(self):
+        self.change_service_config(StartType.SERVICE_DISABLED)
+
+    def start_automatically(self):
+        self.change_service_config(StartType.SERVICE_AUTO_START)
 
     def query_optional_config(self):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684935%28v=VS.85%29.aspx
