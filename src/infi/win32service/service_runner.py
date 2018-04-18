@@ -1,6 +1,7 @@
 import ctypes
 from .service import ServiceState, ServiceControlsAccepted, SERVICE_STATUS, Service
 from .common import ServiceControl, ServiceType
+import six
 
 import logging
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ class _ServiceCtrl(object):
         #   __in      LPHANDLER_FUNCTION_EX lpHandlerProc,
         #   __in_opt  LPVOID lpContext
         # );
-        handle = RegisterServiceCtrlHandlerEx(unicode(service_name), thunk, id(context))
+        handle = RegisterServiceCtrlHandlerEx(six.text_type(service_name), thunk, id(context))
         if handle == 0:
             raise ctypes.WinError()
 
@@ -101,12 +102,12 @@ class _ServiceCtrl(object):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
             def main_wrapper(argc, argv):
                 try:
-                    service[1](list(argv[i] for i in xrange(argc)))
+                    service[1](list(argv[i] for i in range(argc)))
                 except:
                     logger.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
-            name = unicode(service[0]) if service[0] is not None else u""
+            name = six.text_type(service[0]) if service[0] is not None else ""
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
@@ -178,7 +179,7 @@ class ServiceRunner(object):
             self.status = status
         status_struct = SERVICE_STATUS(dwServiceType=ServiceType.WIN32_OWN_PROCESS,
                                        dwCurrentState=self.status,
-                                       dwControlsAccepted=(ServiceControlsAccepted.STOP | 
+                                       dwControlsAccepted=(ServiceControlsAccepted.STOP |
                                                            ServiceControlsAccepted.SHUTDOWN),
                                        dwWin32ExitCode=0,
                                        dwServiceSpecificExitCode=0,
