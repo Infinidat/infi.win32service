@@ -62,11 +62,11 @@ class _ServiceCtrl(object):
                     context = self._contexts[lpContext]
                 else:
                     context = None
-                    
+
                 return callback(handle, dwControl, dwEventType, lpEventData, context)
             except:
                 logger.exception("exception caught in service callback handler")
-            
+
         thunk = HANDLER_EX(wrapper)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685058%28v=VS.85%29.aspx
@@ -82,13 +82,13 @@ class _ServiceCtrl(object):
         self._garbage_protect_map[id(thunk)] = thunk
         self._contexts[id(context)] = context
         self._handles[id(wrapper)] = handle
-            
+
         return Service(handle)
 
     def start_ctrl_dispatcher(self, *services):
         """
         Sets the ServiceMain function of each service. Every element in the list is a pair of name and callback.
-        
+
         For example:
         >>> start_service_ctrl_dispatcher(("my_service", my_service_main), ("my_other_service", my_other_service_main))
 
@@ -127,32 +127,32 @@ class ServiceRunner(object):
     def __init__(self, service_name):
         self.status = ServiceState.START_PENDING
         self.service_name = service_name
-        
+
     def main(self):
         raise NotImplementedError()
-    
+
     def control(self, service_control):
         raise NotImplementedError()
-    
+
     def run(self):
         logger.debug("ServiceRunner.run called.")
         try:
             ServiceCtrl.start_ctrl_dispatcher((self.service_name, self._service_main))
         except:
             logger.exception("error occurred")
-            
+
     def _service_main(self, args):
         logger.debug("ServiceRunner._service_main called, self=%s, args=%s" % (self, repr(args)))
-        
+
         try:
             service = ServiceCtrl.register_ctrl_handler(self.service_name, self._service_callback)
-            
+
             logger.debug("setting status to START_PENDING")
             self._notify_status(service, ServiceState.START_PENDING)
-        
+
             logger.debug("setting status to RUNNING")
             self._notify_status(service, ServiceState.RUNNING)
-        
+
             self.main()
         except:
             logger.exception("error occurred")
@@ -170,7 +170,7 @@ class ServiceRunner(object):
         elif fdwControl == ServiceControl.INTERROGATE:
             logger.debug("INTERROGATE requested.")
             self._notify_status(service)
-                    
+
         return 0
 
     def _notify_status(self, service, status=None):

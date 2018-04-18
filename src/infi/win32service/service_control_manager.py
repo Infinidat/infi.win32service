@@ -35,7 +35,7 @@ ServiceStartType = enum(
 
 # -- CreateService.dwErrorControl:
 ServiceErrorControl = enum(
-    IGNORE   = 0x00000000, 
+    IGNORE   = 0x00000000,
     NORMAL   = 0x00000001,
     SEVERE   = 0x00000002,
     CRITICAL = 0x00000003)
@@ -59,7 +59,7 @@ class ServiceControlManagerContext(object):
         self.database = unicode(database) if machine is not None else 0
         self.access = access
         self.scm = None
-        
+
     def __enter__(self):
         scm_handle = OpenSCManager(self.machine, self.database, self.access)
         if scm_handle == 0:
