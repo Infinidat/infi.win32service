@@ -1,6 +1,7 @@
 import ctypes
 from .service import ServiceState, ServiceControlsAccepted, SERVICE_STATUS, Service
 from .common import ServiceControl, ServiceType
+import six
 
 import logging
 logger = logging.getLogger(__name__)
@@ -62,11 +63,11 @@ class _ServiceCtrl(object):
                     context = self._contexts[lpContext]
                 else:
                     context = None
-                    
+
                 return callback(handle, dwControl, dwEventType, lpEventData, context)
             except:
                 logger.exception("exception caught in service callback handler")
-            
+
         thunk = HANDLER_EX(wrapper)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685058%28v=VS.85%29.aspx
@@ -75,20 +76,20 @@ class _ServiceCtrl(object):
         #   __in      LPHANDLER_FUNCTION_EX lpHandlerProc,
         #   __in_opt  LPVOID lpContext
         # );
-        handle = RegisterServiceCtrlHandlerEx(unicode(service_name), thunk, id(context))
+        handle = RegisterServiceCtrlHandlerEx(six.text_type(service_name), thunk, id(context))
         if handle == 0:
             raise ctypes.WinError()
 
         self._garbage_protect_map[id(thunk)] = thunk
         self._contexts[id(context)] = context
         self._handles[id(wrapper)] = handle
-            
+
         return Service(handle)
 
     def start_ctrl_dispatcher(self, *services):
         """
         Sets the ServiceMain function of each service. Every element in the list is a pair of name and callback.
-        
+
         For example:
         >>> start_service_ctrl_dispatcher(("my_service", my_service_main), ("my_other_service", my_other_service_main))
 
@@ -101,12 +102,12 @@ class _ServiceCtrl(object):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
             def main_wrapper(argc, argv):
                 try:
-                    service[1](list(argv[i] for i in xrange(argc)))
+                    service[1](list(argv[i] for i in range(argc)))
                 except:
                     logger.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
-            name = unicode(service[0]) if service[0] is not None else u""
+            name = six.text_type(service[0]) if service[0] is not None else ""
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
@@ -127,32 +128,32 @@ class ServiceRunner(object):
     def __init__(self, service_name):
         self.status = ServiceState.START_PENDING
         self.service_name = service_name
-        
+
     def main(self):
         raise NotImplementedError()
-    
+
     def control(self, service_control):
         raise NotImplementedError()
-    
+
     def run(self):
         logger.debug("ServiceRunner.run called.")
         try:
             ServiceCtrl.start_ctrl_dispatcher((self.service_name, self._service_main))
         except:
             logger.exception("error occurred")
-            
+
     def _service_main(self, args):
         logger.debug("ServiceRunner._service_main called, self=%s, args=%s" % (self, repr(args)))
-        
+
         try:
             service = ServiceCtrl.register_ctrl_handler(self.service_name, self._service_callback)
-            
+
             logger.debug("setting status to START_PENDING")
             self._notify_status(service, ServiceState.START_PENDING)
-        
+
             logger.debug("setting status to RUNNING")
             self._notify_status(service, ServiceState.RUNNING)
-        
+
             self.main()
         except:
             logger.exception("error occurred")
@@ -170,7 +171,7 @@ class ServiceRunner(object):
         elif fdwControl == ServiceControl.INTERROGATE:
             logger.debug("INTERROGATE requested.")
             self._notify_status(service)
-                    
+
         return 0
 
     def _notify_status(self, service, status=None):
@@ -178,7 +179,7 @@ class ServiceRunner(object):
             self.status = status
         status_struct = SERVICE_STATUS(dwServiceType=ServiceType.WIN32_OWN_PROCESS,
                                        dwCurrentState=self.status,
-                                       dwControlsAccepted=(ServiceControlsAccepted.STOP | 
+                                       dwControlsAccepted=(ServiceControlsAccepted.STOP |
                                                            ServiceControlsAccepted.SHUTDOWN),
                                        dwWin32ExitCode=0,
                                        dwServiceSpecificExitCode=0,

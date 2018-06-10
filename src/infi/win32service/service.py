@@ -1,5 +1,6 @@
 import ctypes
 import logging
+import six
 
 from .utils import enum
 from .common import ServiceControl, ServiceType, ERROR_INVALID_HANDLE
@@ -177,7 +178,7 @@ SERVICE_NO_CHANGE = 0xffffffff
 
 class Service(object):
     def __init__(self, handle, tag=None):
-        self.handle = ctypes.c_void_p(handle) if isinstance(handle, (int, long)) else \
+        self.handle = ctypes.c_void_p(handle) if isinstance(handle, six.integer_types) else \
                       ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
         self.tag = tag
 
@@ -197,7 +198,7 @@ class Service(object):
 
     def wait_on_pending(self, timeout_in_seconds=60):
         from time import sleep
-        for sec in xrange(timeout_in_seconds):
+        for sec in range(timeout_in_seconds):
             if self.get_status() in (ServiceState.STOP_PENDING, ServiceState.START_PENDING):
                 sleep(1)
             else:
@@ -227,7 +228,7 @@ class Service(object):
             return
         try:
             self.stop()
-        except WindowsError, e:
+        except WindowsError as e:
             if e.winerror != 1062:
                 raise
 
