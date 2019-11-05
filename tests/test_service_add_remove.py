@@ -78,9 +78,9 @@ class MyServiceRunner(ServiceRunner):
 
     def main(self):
         test_file = open(TEST_FILE, "wb")
-        test_file.write("started\n")
+        test_file.write(b"started\n")
         self._stop_event.wait()
-        test_file.write("stopped\n")
+        test_file.write(b"stopped\n")
         test_file.close()
 
     def control(self, control):

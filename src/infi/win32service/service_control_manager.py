@@ -7,9 +7,23 @@ from .service import Service
 from .common import ServiceType, ERROR_INVALID_HANDLE
 
 OpenSCManager      = ctypes.windll.advapi32.OpenSCManagerW
+OpenSCManager.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_int)
+OpenSCManager.restype = ctypes.c_void_p
+
 OpenService        = ctypes.windll.advapi32.OpenServiceW
+OpenService.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int)
+OpenService.restype = ctypes.c_void_p
+
 CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
+CloseServiceHandle.argtypes = (ctypes.c_void_p, )
+CloseServiceHandle.restype = ctypes.c_ulong
+
 CreateService      = ctypes.windll.advapi32.CreateServiceW
+CreateService.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_wchar_p,
+                          ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong,
+                          ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_ulong,
+                          ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p)
+CreateService.restype = ctypes.c_void_p
 
 # From http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981%28v=vs.85%29.aspx
 ServiceManagerAccess = enum(
@@ -56,8 +70,8 @@ ServiceAccess = enum(ALL                  = 0xF01FF,
 class ServiceControlManagerContext(object):
     def __init__(self, machine=None, database=None, access=ServiceManagerAccess.ALL):
         super(ServiceControlManagerContext, self).__init__()
-        self.machine = six.text_type(machine) if machine is not None else 0
-        self.database = six.text_type(database) if machine is not None else 0
+        self.machine = ctypes.c_wchar_p(machine)
+        self.database = ctypes.c_wchar_p(database)
         self.access = access
         self.scm = None
 
@@ -97,14 +111,14 @@ class ServiceControlManager(object):
         #   __in_opt   LPCTSTR lpServiceStartName,
         #   __in_opt   LPCTSTR lpPassword
         #);
-        lpServiceName = six.text_type(name)
-        lpDisplayName = six.text_type(display_name)
+        lpServiceName = ctypes.c_wchar_p(name)
+        lpDisplayName = ctypes.c_wchar_p(display_name)
         dwDesiredAccess = access
         dwServiceType = type
         dwStartType = start_type
         dwErrorControl = error_control
-        lpBinaryPathName = six.text_type(path)
-        lpLoadOrderGroup = six.text_type(load_order_group) if load_order_group is not None else None
+        lpBinaryPathName = ctypes.c_wchar_p(path)
+        lpLoadOrderGroup = ctypes.c_wchar_p(load_order_group)
 
         # TODO: Setting a lpdwTagId makes Windows return error 87 "The parameter is incorrect". Since it's not that
         # important at the moment, we'll keep this as NULL.
@@ -112,9 +126,9 @@ class ServiceControlManager(object):
         # lpdwTagId = ctypes.addressof(tag_id)
         lpdwTagId = None
 
-        lpDependencies = six.text_type(dependencies) if dependencies is not None else None
-        lpServiceStartName = six.text_type(account) if account is not None else None
-        lpPassword = six.text_type(account_password) if account_password is not None else None
+        lpDependencies = ctypes.c_wchar_p(dependencies)
+        lpServiceStartName = ctypes.c_wchar_p(account)
+        lpPassword = ctypes.c_wchar_p(account_password)
 
         assert self.handle != 0
         service_h = CreateService(self.handle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType,
@@ -125,7 +139,7 @@ class ServiceControlManager(object):
         return Service(service_h, tag_id.value)
 
     def open_service(self, name, access=ServiceAccess.ALL):
-        service_h = OpenService(self.handle, six.text_type(name), access)
+        service_h = OpenService(self.handle, ctypes.c_wchar_p(name), access)
         if service_h == 0:
             raise ctypes.WinError()
         return Service(service_h)

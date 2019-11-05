@@ -6,15 +6,14 @@ import six
 import logging
 logger = logging.getLogger(__name__)
 
-RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
-StartServiceCtrlDispatcher   = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
+
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685138%28v=VS.85%29.aspx
 # VOID WINAPI ServiceMain(
 #   __in  DWORD dwArgc,
 #   __in  LPTSTR *lpszArgv
 # );
-SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.POINTER(ctypes.c_wchar_p))
+SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_wchar_p))
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms683241%28v=VS.85%29.aspx
 # DWORD WINAPI HandlerEx(
@@ -35,6 +34,14 @@ HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, 
 # } SERVICE_TABLE_ENTRY, *LPSERVICE_TABLE_ENTRY;
 class SERVICE_TABLE_ENTRY(ctypes.Structure):
     _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", SERVICE_MAIN_FUNCTION)]
+
+RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
+RegisterServiceCtrlHandlerEx.argtypes = (ctypes.c_wchar_p, HANDLER_EX, ctypes.c_void_p)
+RegisterServiceCtrlHandlerEx.restype = ctypes.c_void_p
+
+StartServiceCtrlDispatcher   = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
+StartServiceCtrlDispatcher.argtypes = (ctypes.c_void_p,)
+StartServiceCtrlDispatcher.restype = ctypes.c_bool
 
 class _ServiceCtrl(object):
     def __init__(self):
@@ -76,7 +83,7 @@ class _ServiceCtrl(object):
         #   __in      LPHANDLER_FUNCTION_EX lpHandlerProc,
         #   __in_opt  LPVOID lpContext
         # );
-        handle = RegisterServiceCtrlHandlerEx(six.text_type(service_name), thunk, id(context))
+        handle = RegisterServiceCtrlHandlerEx(ctypes.c_wchar_p(service_name), thunk, id(context))
         if handle == 0:
             raise ctypes.WinError()
 
@@ -107,14 +114,14 @@ class _ServiceCtrl(object):
                     logger.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
-            name = six.text_type(service[0]) if service[0] is not None else ""
+            name = ctypes.c_wchar_p(service[0] if service[0] is not None else 0)
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
         # BOOL WINAPI StartServiceCtrlDispatcher(
         #   __in  const SERVICE_TABLE_ENTRY *lpServiceTable
         # );
-        if not StartServiceCtrlDispatcher(service_tables):
+        if not StartServiceCtrlDispatcher(ctypes.c_void_p(id(service_tables[0]))):
             raise ctypes.WinError()
 
         # We need to protect ctype's thunk from the garbage collector. Note that this is a memory "leak" because we
