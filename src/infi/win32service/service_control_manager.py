@@ -129,7 +129,7 @@ class ServiceControlManager(object):
     def close(self):
         if self.handle != 0:
             if not CloseServiceHandle(self.handle):
-                if ctypes.GetLastError() != ERROR_INVALID_HANDLE:
+                if ctypes.get_last_error() != ERROR_INVALID_HANDLE:
                     raise ctypes.WinError()
             self.handle = 0
 
