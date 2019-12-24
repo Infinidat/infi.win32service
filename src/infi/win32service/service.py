@@ -130,31 +130,6 @@ class SERVICE_STATUS(ctypes.Structure):
 
 LPSERVICE_STATUS = ctypes.POINTER(SERVICE_STATUS)
 
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
-# typedef VOID( CALLBACK * PFN_SC_NOTIFY_CALLBACK ) (
-#     IN PVOID pParameter
-# );
-FN_SC_NOTIFY_CALLBACK = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p)
-
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
-# typedef struct _SERVICE_NOTIFY {
-#   DWORD                  dwVersion;
-#   PFN_SC_NOTIFY_CALLBACK pfnNotifyCallback;
-#   PVOID                  pContext;
-#   DWORD                  dwNotificationStatus;
-#   SERVICE_STATUS_PROCESS ServiceStatus;
-#   DWORD                  dwNotificationTriggered;
-#   LPTSTR                 pszServiceNames;
-# } SERVICE_NOTIFY, *PSERVICE_NOTIFY;
-class SERVICE_NOTIFY(ctypes.Structure):
-    _fields_ = [("dwVersion", ctypes.c_ulong),
-                ("pfnNotifyCallback", FN_SC_NOTIFY_CALLBACK),
-                ("pContext", ctypes.c_void_p),
-                ("dwNotificationStatus", ctypes.c_ulong),
-                ("ServiceStatus", SERVICE_STATUS_PROCESS),
-                ("dwNotificationTriggered", ctypes.c_ulong),
-                ("pszServiceNames", ctypes.c_wchar_p)]
-
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684276%28v=VS.85%29.aspx
 ServiceNotifyMask = enum(
     STOPPED          = 0x00000001,
