@@ -106,11 +106,7 @@ class ServiceControlManager(object):
         lpBinaryPathName = six.text_type(path)
         lpLoadOrderGroup = six.text_type(load_order_group) if load_order_group is not None else None
 
-        # TODO: Setting a lpdwTagId makes Windows return error 87 "The parameter is incorrect". Since it's not that
-        # important at the moment, we'll keep this as NULL.
-        tag_id = ctypes.c_uint(0)
-        # lpdwTagId = ctypes.addressof(tag_id)
-        lpdwTagId = None
+        lpdwTagId = None    # from CreateService docs: "Specify NULL if you are not changing the existing tag."
 
         lpDependencies = six.text_type(dependencies) if dependencies is not None else None
         lpServiceStartName = six.text_type(account) if account is not None else None
@@ -122,7 +118,7 @@ class ServiceControlManager(object):
                                   lpDependencies, lpServiceStartName, lpPassword)
         if service_h == 0:
             raise ctypes.WinError()
-        return Service(service_h, tag_id.value)
+        return Service(service_h)
 
     def open_service(self, name, access=ServiceAccess.ALL):
         service_h = OpenService(self.handle, six.text_type(name), access)

@@ -177,10 +177,9 @@ NO_ERROR = 0
 SERVICE_NO_CHANGE = 0xffffffff
 
 class Service(object):
-    def __init__(self, handle, tag=None):
+    def __init__(self, handle):
         self.handle = ctypes.c_void_p(handle) if isinstance(handle, six.integer_types) else \
                       ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
-        self.tag = tag
 
     def start(self, *args):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686321%28v=vs.85%29.aspx
