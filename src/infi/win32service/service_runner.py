@@ -1,20 +1,17 @@
 import ctypes
+from ctypes import wintypes
 from .service import ServiceState, ServiceControlsAccepted, SERVICE_STATUS, Service
 from .common import ServiceControl, ServiceType
-import six
 
 import logging
 logger = logging.getLogger(__name__)
-
-RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
-StartServiceCtrlDispatcher   = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685138%28v=VS.85%29.aspx
 # VOID WINAPI ServiceMain(
 #   __in  DWORD dwArgc,
 #   __in  LPTSTR *lpszArgv
 # );
-SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.POINTER(ctypes.c_wchar_p))
+SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.DWORD, wintypes.LPWSTR)
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms683241%28v=VS.85%29.aspx
 # DWORD WINAPI HandlerEx(
@@ -23,10 +20,7 @@ SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.
 #   __in  LPVOID lpEventData,
 #   __in  LPVOID lpContext
 # );
-# Although lpContext is LPVOID here, we specify c_ulong because we store the Pythonic context object too so it won't
-# get garbage collected. We use Python's id() function as the "address" of the Pythonic context object.
-# See the rest in register_ctrl_handler
-HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_uint)
+HANDLER_EX = ctypes.WINFUNCTYPE(wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID)
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
 # typedef struct _SERVICE_TABLE_ENTRY {
@@ -34,7 +28,16 @@ HANDLER_EX = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, 
 #   LPSERVICE_MAIN_FUNCTION lpServiceProc;
 # } SERVICE_TABLE_ENTRY, *LPSERVICE_TABLE_ENTRY;
 class SERVICE_TABLE_ENTRY(ctypes.Structure):
-    _fields_ = [("lpServiceName", ctypes.c_wchar_p), ("lpServiceProc", SERVICE_MAIN_FUNCTION)]
+    _fields_ = [("lpServiceName", wintypes.LPWSTR), ("lpServiceProc", SERVICE_MAIN_FUNCTION)]
+
+
+RegisterServiceCtrlHandlerEx = ctypes.windll.advapi32.RegisterServiceCtrlHandlerExW
+RegisterServiceCtrlHandlerEx.argtypes = (wintypes.LPCWSTR, HANDLER_EX, wintypes.LPVOID)
+RegisterServiceCtrlHandlerEx.restype = wintypes.SERVICE_STATUS_HANDLE
+StartServiceCtrlDispatcher = ctypes.windll.advapi32.StartServiceCtrlDispatcherW
+StartServiceCtrlDispatcher.argtypes = (ctypes.POINTER(SERVICE_TABLE_ENTRY),)
+StartServiceCtrlDispatcher.restype = wintypes.BOOL
+
 
 class _ServiceCtrl(object):
     def __init__(self):
@@ -76,8 +79,8 @@ class _ServiceCtrl(object):
         #   __in      LPHANDLER_FUNCTION_EX lpHandlerProc,
         #   __in_opt  LPVOID lpContext
         # );
-        handle = RegisterServiceCtrlHandlerEx(six.text_type(service_name), thunk, id(context))
-        if handle == 0:
+        handle = RegisterServiceCtrlHandlerEx(wintypes.LPWSTR(service_name), thunk, id(context))
+        if handle is None:
             raise ctypes.WinError()
 
         self._garbage_protect_map[id(thunk)] = thunk
@@ -107,7 +110,7 @@ class _ServiceCtrl(object):
                     logger.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
-            name = six.text_type(service[0]) if service[0] is not None else ""
+            name = wintypes.LPWSTR(service[0] if service[0] is not None else "")
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx

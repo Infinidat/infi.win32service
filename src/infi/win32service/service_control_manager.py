@@ -1,4 +1,5 @@
 import ctypes
+from ctypes import wintypes
 from collections import namedtuple
 import six
 
@@ -6,10 +7,21 @@ from .utils import enum
 from .service import Service
 from .common import ServiceType, ERROR_INVALID_HANDLE
 
-OpenSCManager      = ctypes.windll.advapi32.OpenSCManagerW
-OpenService        = ctypes.windll.advapi32.OpenServiceW
+OpenSCManager = ctypes.windll.advapi32.OpenSCManagerW
+OpenSCManager.argtypes = (wintypes.LPWSTR, wintypes.LPWSTR, wintypes.DWORD)
+OpenSCManager.restype = wintypes.SC_HANDLE
+OpenService = ctypes.windll.advapi32.OpenServiceW
+OpenService.argtypes = (wintypes.SC_HANDLE, wintypes.LPWSTR, wintypes.DWORD)
+OpenService.restype = wintypes.SC_HANDLE
 CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
-CreateService      = ctypes.windll.advapi32.CreateServiceW
+CloseServiceHandle.argtypes = (wintypes.SC_HANDLE, )
+CloseServiceHandle.restype = wintypes.BOOL
+CreateService = ctypes.windll.advapi32.CreateServiceW
+CreateService.argtypes = (wintypes.SC_HANDLE, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                          wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+                          wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD),
+                          wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR)
+CreateService.restype = wintypes.SC_HANDLE
 
 # From http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981%28v=vs.85%29.aspx
 ServiceManagerAccess = enum(
@@ -56,14 +68,14 @@ ServiceAccess = enum(ALL                  = 0xF01FF,
 class ServiceControlManagerContext(object):
     def __init__(self, machine=None, database=None, access=ServiceManagerAccess.ALL):
         super(ServiceControlManagerContext, self).__init__()
-        self.machine = six.text_type(machine) if machine is not None else 0
-        self.database = six.text_type(database) if machine is not None else 0
+        self.machine = wintypes.LPWSTR(machine) if machine is not None else None
+        self.database = wintypes.LPWSTR(database) if database is not None else None
         self.access = access
         self.scm = None
 
     def __enter__(self):
         scm_handle = OpenSCManager(self.machine, self.database, self.access)
-        if scm_handle == 0:
+        if scm_handle is None:
             raise ctypes.WinError()
         self.scm = ServiceControlManager(scm_handle)
         return self.scm
@@ -75,8 +87,8 @@ class ServiceControlManagerContext(object):
 class ServiceControlManager(object):
     def __init__(self, handle):
         super(ServiceControlManager, self).__init__()
-        self.handle = ctypes.c_void_p(handle) if isinstance(handle, six.integer_types) else \
-                      ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
+        self.handle = wintypes.SC_HANDLE(handle) if isinstance(handle, six.integer_types) else \
+                      wintypes.SC_HANDLE(handle.value) if hasattr(handle, "value") else handle
 
     def create_service(self, name, display_name, type, start_type, path,
                        load_order_group=None, dependencies=None, error_control=ServiceErrorControl.NORMAL,
@@ -97,41 +109,41 @@ class ServiceControlManager(object):
         #   __in_opt   LPCTSTR lpServiceStartName,
         #   __in_opt   LPCTSTR lpPassword
         #);
-        lpServiceName = six.text_type(name)
-        lpDisplayName = six.text_type(display_name)
+        lpServiceName = wintypes.LPWSTR(name)
+        lpDisplayName = wintypes.LPWSTR(display_name)
         dwDesiredAccess = access
         dwServiceType = type
         dwStartType = start_type
         dwErrorControl = error_control
-        lpBinaryPathName = six.text_type(path)
-        lpLoadOrderGroup = six.text_type(load_order_group) if load_order_group is not None else None
+        lpBinaryPathName = wintypes.LPWSTR(path)
+        lpLoadOrderGroup = wintypes.LPWSTR(load_order_group) if load_order_group is not None else None
 
         lpdwTagId = None    # from CreateService docs: "Specify NULL if you are not changing the existing tag."
 
-        lpDependencies = six.text_type(dependencies) if dependencies is not None else None
-        lpServiceStartName = six.text_type(account) if account is not None else None
-        lpPassword = six.text_type(account_password) if account_password is not None else None
+        lpDependencies = wintypes.LPWSTR(dependencies) if dependencies is not None else None
+        lpServiceStartName = wintypes.LPWSTR(account) if account is not None else None
+        lpPassword = wintypes.LPWSTR(account_password) if account_password is not None else None
 
-        assert self.handle != 0
+        assert self.handle is not None
         service_h = CreateService(self.handle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType,
                                   dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId,
                                   lpDependencies, lpServiceStartName, lpPassword)
-        if service_h == 0:
+        if service_h is None:
             raise ctypes.WinError()
         return Service(service_h)
 
     def open_service(self, name, access=ServiceAccess.ALL):
-        service_h = OpenService(self.handle, six.text_type(name), access)
-        if service_h == 0:
+        service_h = OpenService(self.handle, wintypes.LPWSTR(name), access)
+        if service_h is None:
             raise ctypes.WinError()
         return Service(service_h)
 
     def close(self):
-        if self.handle != 0:
+        if self.handle is not None:
             if not CloseServiceHandle(self.handle):
                 if ctypes.get_last_error() != ERROR_INVALID_HANDLE:
                     raise ctypes.WinError()
-            self.handle = 0
+            self.handle = None
 
     def is_service_exist(self, name):
         try:
