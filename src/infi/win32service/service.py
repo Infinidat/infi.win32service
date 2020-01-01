@@ -250,9 +250,9 @@ class Service(object):
         # );
         config_buffer = ctypes.create_string_buffer(8192) # The maximum size of this array is 8K bytes
         bytes_needed = wintypes.DWORD()
-        if not QueryServiceConfig(self.handle, config_buffer, 8192, ctypes.byref(bytes_needed)):
-            raise ctypes.WinError()
         service_config = ctypes.cast(config_buffer, ctypes.POINTER(QUERY_SERVICE_CONFIG))
+        if not QueryServiceConfig(self.handle, service_config, 8192, ctypes.byref(bytes_needed)):
+            raise ctypes.WinError()
         return service_config.contents.to_dict()
 
     def change_service_config(self, start_type):
