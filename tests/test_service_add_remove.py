@@ -77,11 +77,10 @@ class MyServiceRunner(ServiceRunner):
         self._stop_event = Event()
 
     def main(self):
-        test_file = open(TEST_FILE, "wb")
-        test_file.write("started\n")
-        self._stop_event.wait()
-        test_file.write("stopped\n")
-        test_file.close()
+        with open(TEST_FILE, "wb") as test_file:
+            test_file.write(b"started\n")
+            self._stop_event.wait()
+            test_file.write(b"stopped\n")
 
     def control(self, control):
         if control == ServiceControl.STOP:
