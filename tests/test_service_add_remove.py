@@ -54,8 +54,9 @@ class TestWin32Service(TestCase):
         self._register()
         self._start_stop()
 
-        test_lines = open(TEST_FILE, "rb").readlines()
-        self.assertEqual(test_lines, ["started\n", "stopped\n"])
+        with open(TEST_FILE, "rb") as test_file:
+            test_lines = test_file.readlines()
+        self.assertEqual(test_lines, [b"started\n", b"stopped\n"])
 
         self._delete()
 
