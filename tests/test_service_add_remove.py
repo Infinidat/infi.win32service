@@ -10,13 +10,14 @@ INFI_SERVICE_NAME = u"InfinidatTest"
 TEST_FILE = "c:\\test_service.txt"
 
 class TestWin32Service(TestCase):
-    def _register(self):
+    def _register(self, autostart=True):
+        start_type = ServiceStartType.AUTO if autostart else ServiceStartType.DEMAND
         with ServiceControlManagerContext() as scm:
             python_exe = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, "bin", "python.exe"))
             scm.create_service(INFI_SERVICE_NAME,
                                u"Infinidat Test Service",
                                ServiceType.WIN32_OWN_PROCESS,
-                               ServiceStartType.AUTO,
+                               start_type,
                                "\"{}\" {}".format(python_exe, __file__.replace('.pyc', '.py'))).close()
 
     def _start_stop(self):
@@ -54,8 +55,9 @@ class TestWin32Service(TestCase):
         self._register()
         self._start_stop()
 
-        test_lines = open(TEST_FILE, "rb").readlines()
-        self.assertEqual(test_lines, ["started\n", "stopped\n"])
+        with open(TEST_FILE, "rb") as test_file:
+            test_lines = test_file.readlines()
+        self.assertEqual(test_lines, [b"started\n", b"stopped\n"])
 
         self._delete()
 
@@ -71,17 +73,29 @@ class TestWin32Service(TestCase):
                 infi_service.safe_stop()
                 time.sleep(6)
 
+    def _test_is_autostart(self, autostart):
+        self._register(autostart=autostart)
+        with ServiceControlManagerContext() as scm:
+            infi_service = scm.open_service(INFI_SERVICE_NAME)
+            self.assertEquals(infi_service.is_autostart(), autostart)
+            infi_service.close()
+        self._delete()
+
+    def test_is_autostart(self):
+        self._test_is_autostart(False)
+        self._test_is_autostart(True)
+
+
 class MyServiceRunner(ServiceRunner):
     def __init__(self):
         super(MyServiceRunner, self).__init__(INFI_SERVICE_NAME)
         self._stop_event = Event()
 
     def main(self):
-        test_file = open(TEST_FILE, "wb")
-        test_file.write("started\n")
-        self._stop_event.wait()
-        test_file.write("stopped\n")
-        test_file.close()
+        with open(TEST_FILE, "wb") as test_file:
+            test_file.write(b"started\n")
+            self._stop_event.wait()
+            test_file.write(b"stopped\n")
 
     def control(self, control):
         if control == ServiceControl.STOP:

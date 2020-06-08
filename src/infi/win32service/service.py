@@ -1,18 +1,10 @@
 import ctypes
+from ctypes import wintypes
 import logging
 import six
 
 from .utils import enum
 from .common import ServiceControl, ServiceType, ERROR_INVALID_HANDLE
-
-StartService                 = ctypes.windll.advapi32.StartServiceW
-ControlService               = ctypes.windll.advapi32.ControlService
-DeleteService                = ctypes.windll.advapi32.DeleteService
-SetServiceStatus             = ctypes.windll.advapi32.SetServiceStatus
-CloseServiceHandle           = ctypes.windll.advapi32.CloseServiceHandle
-QueryServiceStatus           = ctypes.windll.advapi32.QueryServiceStatus
-QueryServiceConfig           = ctypes.windll.advapi32.QueryServiceConfigW
-ChangeServiceConfig          = ctypes.windll.advapi32.ChangeServiceConfigW
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=VS.85%29.aspx
 # typedef struct _SERVICE_STATUS_PROCESS {
@@ -27,15 +19,15 @@ ChangeServiceConfig          = ctypes.windll.advapi32.ChangeServiceConfigW
 #   DWORD dwServiceFlags;
 # } SERVICE_STATUS_PROCESS, *LPSERVICE_STATUS_PROCESS;
 class SERVICE_STATUS_PROCESS(ctypes.Structure):
-    _fields_ = [("dwServiceType", ctypes.c_ulong),
-                ("dwCurrentState", ctypes.c_ulong),
-                ("dwControlsAccepted", ctypes.c_ulong),
-                ("dwWin32ExitCode", ctypes.c_ulong),
-                ("dwServiceSpecificExitCode", ctypes.c_ulong),
-                ("dwCheckPoint", ctypes.c_ulong),
-                ("dwWaitHint", ctypes.c_ulong),
-                ("dwProcessId", ctypes.c_ulong),
-                ("dwServiceFlags", ctypes.c_ulong)]
+    _fields_ = [("dwServiceType", wintypes.DWORD),
+                ("dwCurrentState", wintypes.DWORD),
+                ("dwControlsAccepted", wintypes.DWORD),
+                ("dwWin32ExitCode", wintypes.DWORD),
+                ("dwServiceSpecificExitCode", wintypes.DWORD),
+                ("dwCheckPoint", wintypes.DWORD),
+                ("dwWaitHint", wintypes.DWORD),
+                ("dwProcessId", wintypes.DWORD),
+                ("dwServiceFlags", wintypes.DWORD)]
 
 # https://msdn.microsoft.com/en-us/library/windows/desktop/ms684950(v=vs.85).aspx
 # typedef struct _QUERY_SERVICE_CONFIG {
@@ -50,14 +42,15 @@ class SERVICE_STATUS_PROCESS(ctypes.Structure):
 #   LPTSTR lpDisplayName;
 # } QUERY_SERVICE_CONFIG, *LPQUERY_SERVICE_CONFIG;
 class QUERY_SERVICE_CONFIG(ctypes.Structure):
-    _fields_ = [("dwServiceType", ctypes.c_ulong),
-                ("dwStartType", ctypes.c_ulong),
-                ("dwErrorControl", ctypes.c_ulong),
-                ("lpBinaryPathName", ctypes.c_wchar_p),
-                ("lpLoadOrderGroup", ctypes.c_wchar_p),
-                ("dwTagId", ctypes.c_ulong),
-                ("lpDependencies", ctypes.c_wchar_p),
-                ("lpServiceStartName", ctypes.c_wchar_p)]
+    _fields_ = [("dwServiceType", wintypes.DWORD),
+                ("dwStartType", wintypes.DWORD),
+                ("dwErrorControl", wintypes.DWORD),
+                ("lpBinaryPathName", wintypes.LPWSTR),
+                ("lpLoadOrderGroup", wintypes.LPWSTR),
+                ("dwTagId", wintypes.DWORD),
+                ("lpDependencies", wintypes.LPWSTR),
+                ("lpServiceStartName", wintypes.LPWSTR),
+                ("lpDisplayName", wintypes.LPWSTR),]
 
     def to_dict(self):
         return dict(service_type=self.dwServiceType, start_type=self.dwStartType,
@@ -120,40 +113,15 @@ SERVICE_DISABLED = 0x00000004
 #   DWORD dwWaitHint;
 # } SERVICE_STATUS, *LPSERVICE_STATUS;
 class SERVICE_STATUS(ctypes.Structure):
-    _fields_ = [("dwServiceType", ctypes.c_ulong),
-                ("dwCurrentState", ctypes.c_ulong),
-                ("dwControlsAccepted", ctypes.c_ulong),
-                ("dwWin32ExitCode", ctypes.c_ulong),
-                ("dwServiceSpecificExitCode", ctypes.c_ulong),
-                ("dwCheckPoint", ctypes.c_ulong),
-                ("dwWaitHint", ctypes.c_ulong)]
+    _fields_ = [("dwServiceType", wintypes.DWORD),
+                ("dwCurrentState", wintypes.DWORD),
+                ("dwControlsAccepted", wintypes.DWORD),
+                ("dwWin32ExitCode", wintypes.DWORD),
+                ("dwServiceSpecificExitCode", wintypes.DWORD),
+                ("dwCheckPoint", wintypes.DWORD),
+                ("dwWaitHint", wintypes.DWORD)]
 
 LPSERVICE_STATUS = ctypes.POINTER(SERVICE_STATUS)
-
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
-# typedef VOID( CALLBACK * PFN_SC_NOTIFY_CALLBACK ) (
-#     IN PVOID pParameter
-# );
-FN_SC_NOTIFY_CALLBACK = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p)
-
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms685947%28v=VS.85%29.aspx
-# typedef struct _SERVICE_NOTIFY {
-#   DWORD                  dwVersion;
-#   PFN_SC_NOTIFY_CALLBACK pfnNotifyCallback;
-#   PVOID                  pContext;
-#   DWORD                  dwNotificationStatus;
-#   SERVICE_STATUS_PROCESS ServiceStatus;
-#   DWORD                  dwNotificationTriggered;
-#   LPTSTR                 pszServiceNames;
-# } SERVICE_NOTIFY, *PSERVICE_NOTIFY;
-class SERVICE_NOTIFY(ctypes.Structure):
-    _fields_ = [("dwVersion", ctypes.c_ulong),
-                ("pfnNotifyCallback", FN_SC_NOTIFY_CALLBACK),
-                ("pContext", ctypes.c_void_p),
-                ("dwNotificationStatus", ctypes.c_ulong),
-                ("ServiceStatus", SERVICE_STATUS_PROCESS),
-                ("dwNotificationTriggered", ctypes.c_ulong),
-                ("pszServiceNames", ctypes.c_wchar_p)]
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms684276%28v=VS.85%29.aspx
 ServiceNotifyMask = enum(
@@ -176,11 +144,39 @@ NO_ERROR = 0
 # From winsvc.h:
 SERVICE_NO_CHANGE = 0xffffffff
 
+
+StartService = ctypes.windll.advapi32.StartServiceW
+StartService.argtypes = (wintypes.SC_HANDLE, wintypes.DWORD, wintypes.LPCWSTR)
+StartService.restype = wintypes.BOOL
+ControlService = ctypes.windll.advapi32.ControlService
+ControlService.argtypes = (wintypes.SC_HANDLE, wintypes.DWORD, LPSERVICE_STATUS)
+ControlService.restype = wintypes.BOOL
+DeleteService = ctypes.windll.advapi32.DeleteService
+DeleteService.argtypes = (wintypes.SC_HANDLE, )
+DeleteService.restype = wintypes.BOOL
+SetServiceStatus = ctypes.windll.advapi32.SetServiceStatus
+SetServiceStatus.argtypes = (wintypes.SERVICE_STATUS_HANDLE, LPSERVICE_STATUS)
+SetServiceStatus.restype = wintypes.BOOL
+CloseServiceHandle = ctypes.windll.advapi32.CloseServiceHandle
+CloseServiceHandle.argtypes = (wintypes.SC_HANDLE, )
+CloseServiceHandle.restype = wintypes.BOOL
+QueryServiceStatus = ctypes.windll.advapi32.QueryServiceStatus
+QueryServiceStatus.argtypes = (wintypes.SC_HANDLE, LPSERVICE_STATUS)
+QueryServiceStatus.restype = wintypes.BOOL
+QueryServiceConfig = ctypes.windll.advapi32.QueryServiceConfigW
+QueryServiceConfig.argtypes = (wintypes.SC_HANDLE, LPQUERY_SERVICE_CONFIG, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD))
+QueryServiceConfig.restype = wintypes.BOOL
+ChangeServiceConfig = ctypes.windll.advapi32.ChangeServiceConfigW
+ChangeServiceConfig.argtypes = (wintypes.SC_HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+                                wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD),
+                                wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR)
+ChangeServiceConfig.restype = wintypes.BOOL
+
+
 class Service(object):
-    def __init__(self, handle, tag=None):
-        self.handle = ctypes.c_void_p(handle) if isinstance(handle, six.integer_types) else \
-                      ctypes.c_void_p(handle.value) if hasattr(handle, value) else handle
-        self.tag = tag
+    def __init__(self, handle):
+        self.handle = wintypes.SC_HANDLE(handle) if isinstance(handle, six.integer_types) else \
+                      wintypes.SC_HANDLE(handle.value) if hasattr(handle, "value") else handle
 
     def start(self, *args):
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686321%28v=vs.85%29.aspx
@@ -192,7 +188,7 @@ class Service(object):
         if len(args) == 0:
             lpServiceArgVectors = None
         else:
-            lpServiceArgVectors = (ctypes.c_wchar_p * len(args))(*args)
+            lpServiceArgVectors = (wintypes.LPWSTR * len(args))(*args)
         if not StartService(self.handle, len(args), lpServiceArgVectors):
             raise ctypes.WinError()
 
@@ -253,10 +249,10 @@ class Service(object):
         #   __out      LPDWORD pcbBytesNeeded
         # );
         config_buffer = ctypes.create_string_buffer(8192) # The maximum size of this array is 8K bytes
-        bytes_needed = ctypes.c_ulong()
-        if not QueryServiceConfig(self.handle, config_buffer, 8192, ctypes.byref(bytes_needed)):
-            raise ctypes.WinError()
+        bytes_needed = wintypes.DWORD()
         service_config = ctypes.cast(config_buffer, ctypes.POINTER(QUERY_SERVICE_CONFIG))
+        if not QueryServiceConfig(self.handle, service_config, 8192, ctypes.byref(bytes_needed)):
+            raise ctypes.WinError()
         return service_config.contents.to_dict()
 
     def change_service_config(self, start_type):
@@ -274,12 +270,11 @@ class Service(object):
         #   _In_opt_  LPCTSTR   lpPassword,
         #   _In_opt_  LPCTSTR   lpDisplayName
         # );
-        null_ptr = ctypes.POINTER(ctypes.c_int)()
         if not ChangeServiceConfig(self.handle,
                                    SERVICE_NO_CHANGE, start_type, SERVICE_NO_CHANGE,
-                                   null_ptr, null_ptr,
-                                   null_ptr, null_ptr, null_ptr,
-                                   null_ptr, null_ptr):
+                                   None, None,
+                                   None, None, None,
+                                   None, None):
             raise ctypes.WinError()
 
     def is_disabled(self):
@@ -331,7 +326,7 @@ class Service(object):
     def close(self):
         if self.handle != 0:
             if not CloseServiceHandle(self.handle):
-                if ctypes.GetLastError() != ERROR_INVALID_HANDLE:
+                if ctypes.get_last_error() != ERROR_INVALID_HANDLE:
                     raise ctypes.WinError()
             self.handle = 0
 
