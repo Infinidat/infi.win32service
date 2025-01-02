@@ -103,9 +103,16 @@ class _ServiceCtrl(object):
         service_tables = (SERVICE_TABLE_ENTRY * (len(services) + 1))()
         for i, service in enumerate(services):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
+            if len(service) != 2:
+                continue
+            method = service[1]
             def main_wrapper(argc, argv):
+                if isinstance(argv, (list, set, tuple)):
+                    args = list(argv)
+                else:
+                    args = [argv]
                 try:
-                    service[1](list(argv[i] for i in range(argc)))
+                    method(args)
                 except:
                     logger.exception("service main exception caught")
 
