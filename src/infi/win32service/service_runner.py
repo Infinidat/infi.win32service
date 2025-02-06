@@ -2,6 +2,7 @@ import ctypes
 from ctypes import wintypes
 from .service import ServiceState, ServiceControlsAccepted, SERVICE_STATUS, Service
 from .common import ServiceControl, ServiceType
+from infi.winver import Windows
 
 import logging
 logger = logging.getLogger(__name__)
@@ -103,9 +104,18 @@ class _ServiceCtrl(object):
         service_tables = (SERVICE_TABLE_ENTRY * (len(services) + 1))()
         for i, service in enumerate(services):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
+            method = service[1]
             def main_wrapper(argc, argv):
+                windows = Windows()
+                logger.debug('Start service control dispatcher on %s %s %s '
+                             'Service Pack %s with %s %s arguments: %s',
+                             windows.version, windows.edition,
+                             windows.architecture, windows.service_pack,
+                             argc, type(argv).__name__, argv)
+                if isinstance(argv, str):
+                    argv = [argv]
                 try:
-                    service[1](list(argv[i] for i in range(argc)))
+                    method(argv)
                 except:
                     logger.exception("service main exception caught")
 
