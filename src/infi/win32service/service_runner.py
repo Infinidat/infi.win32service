@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 #   __in  DWORD dwArgc,
 #   __in  LPTSTR *lpszArgv
 # );
-SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.DWORD, wintypes.LPWSTR)
+SERVICE_MAIN_FUNCTION = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.DWORD, ctypes.POINTER(wintypes.LPWSTR))
 
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms683241%28v=VS.85%29.aspx
 # DWORD WINAPI HandlerEx(
@@ -104,23 +104,26 @@ class _ServiceCtrl(object):
         service_tables = (SERVICE_TABLE_ENTRY * (len(services) + 1))()
         for i, service in enumerate(services):
             # We wrap the normal ServiceMain so we can pass the Python callback a nice argv Python array.
+            if service[0] is None:
+                caller = 'unknown'
+            else:
+                caller = service[0]
             method = service[1]
             def main_wrapper(argc, argv):
                 windows = Windows()
-                logger.debug('Start service control dispatcher on %s %s %s '
-                             'Service Pack %s with %s %s arguments: %s',
-                             windows.version, windows.edition,
+                args = list(argv[index] for index in range(argc))
+                logger.debug('Start system control dispatcher for %s service on '
+                             '%s %s %s Service Pack %s with %s argument(s): [%s]',
+                             caller, windows.version, windows.edition,
                              windows.architecture, windows.service_pack,
-                             argc, type(argv).__name__, argv)
-                if isinstance(argv, str):
-                    argv = [argv]
+                             argc, ' '.join(args))
                 try:
-                    method(argv)
+                    method(args)
                 except:
                     logger.exception("service main exception caught")
 
             thunk = SERVICE_MAIN_FUNCTION(main_wrapper)
-            name = wintypes.LPWSTR(service[0] if service[0] is not None else "")
+            name = wintypes.LPWSTR(caller)
             service_tables[i] = SERVICE_TABLE_ENTRY(lpServiceName=name, lpServiceProc=thunk)
 
         # http://msdn.microsoft.com/en-us/library/windows/desktop/ms686324%28v=VS.85%29.aspx
